@@ -25,6 +25,8 @@ public class NetworkingService extends Service implements NetworkListener {
 	private Channel channel;
 	
 	private BroadcastReceiver receiver;
+	
+	private WebServer webServer;
 
 	public NetworkingService() {
 		// TODO Auto-generated constructor stub
@@ -52,6 +54,7 @@ public class NetworkingService extends Service implements NetworkListener {
 	    
 	    receiver = new WiFiDirectBroadcastReceiver(manager, channel, this);
         registerReceiver(receiver, intentFilter);
+        startRegistration();
 	    
 	    return START_STICKY;
 	}
@@ -63,21 +66,22 @@ public static final String TAG = "Paper Plane";
 	private HashMap<String, String> buddies = new HashMap<String, String>();
 	
     private void startRegistration() {
-
     	
-        
-    	final int SERVER_PORT = 1337;
+    	webServer = new WebServer();
+    	Thread serverThread = new Thread(webServer);
+    	serverThread.start();
+    	
+    	final int port = webServer.getUsedPort();
+    	
         //  Create a string map containing information about your service.
-        Map record = new HashMap();
-        record.put("listenport", String.valueOf(SERVER_PORT));
-        record.put("buddyname", "John Doe" + (int) (Math.random() * 1000));
-        record.put("available", "visible");
+        Map<String, String> record = new HashMap<String, String>();
+        record.put("listenport", String.valueOf(port));
 
         // Service information.  Pass it an instance name, service type
         // _protocol._transportlayer , and the map containing
         // information other devices will want once they connect to this one.
         WifiP2pDnsSdServiceInfo serviceInfo =
-                WifiP2pDnsSdServiceInfo.newInstance("_test", "_presence._tcp", record);
+                WifiP2pDnsSdServiceInfo.newInstance("PaperPlane", "_http._tcp", record);
 
         // Add the local service, sending the service info, network channel,
         // and listener that will be used to indicate success or failure of
@@ -85,34 +89,30 @@ public static final String TAG = "Paper Plane";
         manager.addLocalService(channel, serviceInfo, new ActionListener() {
             @Override
             public void onSuccess() {
-                // Command successful! Code isn't necessarily needed here,
-                // Unless you want to update the UI or add logging statements.
+                Log.d("NetworkingService", "Service registered on port " + port);
             }
 
             @Override
             public void onFailure(int arg0) {
-                // Command failed.  Check for P2P_UNSUPPORTED, ERROR, or BUSY
+            	String reason = "";
+            	switch(arg0) {
+            	case WifiP2pManager.P2P_UNSUPPORTED:
+            		reason = "P2P_UNSUPPORTED";
+            		break;
+            	case WifiP2pManager.BUSY:
+            		reason = "BUSY";
+            		break;
+            	case WifiP2pManager.ERROR:
+            		reason = "ERROR";
+            		break;
+            	}
+            	
+            	Log.e("NetworkingService", "Cannot register service on port " + port + ": " + reason);
             }
         });
         
-        manager.discoverPeers(channel, new WifiP2pManager.ActionListener() {
-
-	        @Override
-	        public void onSuccess() {
-	            // Code for when the discovery initiation is successful goes here.
-	            // No services have actually been discovered yet, so this method
-	            // can often be left blank.  Code for peer discovery goes in the
-	            // onReceive method, detailed below.
-	        }
-
-	        @Override
-	        public void onFailure(int reasonCode) {
-	            // Code for when the discovery initiation fails goes here.
-	            // Alert the user that something went wrong.
-	        }
-	    });
 	    
-	    discoverService();
+	    //discoverService();
     }
 	
 	private void discoverService() {
@@ -198,6 +198,9 @@ public static final String TAG = "Paper Plane";
 	@Override
 	public void onDestroy() {
 		unregisterReceiver(receiver);
+		if(webServer != null) {
+			// FIXME webServer.stop();
+		}
 		super.onDestroy();
 	}
 
