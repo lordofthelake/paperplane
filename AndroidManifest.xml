@@ -23,11 +23,22 @@
         android:label="@string/app_name"
         android:theme="@style/AppTheme" 
         android:name="it.michelepiccirillo.paperplane.PaperPlane">
+        
+        <activity 
+            android:name="it.michelepiccirillo.paperplane.SetupActivity"
+            android:theme="@style/SplashTheme"
+            android:noHistory="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        
         <activity
             android:name="it.michelepiccirillo.paperplane.MainActivity"
             android:label="@string/app_name" >
-            
         </activity>
+        
         <activity
             android:name="it.michelepiccirillo.paperplane.ProfileActivity"
             android:label="@string/title_activity_profile"
@@ -36,14 +47,10 @@
                 android:name="android.support.PARENT_ACTIVITY"
                 android:value="it.michelepiccirillo.paperplane.MainActivity" />
         </activity>
+        
+        
+        
         <service android:name="NetworkingService"></service>
-        <activity android:name="it.michelepiccirillo.paperplane.SigninActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
     </application>
 
 </manifest>

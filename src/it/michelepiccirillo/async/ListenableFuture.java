@@ -78,7 +78,7 @@ public class ListenableFuture<V> extends FutureTask<V> {
 	 * @param callable il task da eseguire in background
 	 */
 	public ListenableFuture(Callable<V> callable) {
-		this(callable, null, null);
+		this(callable, null);
 	}
 	
 	/**
@@ -136,5 +136,13 @@ public class ListenableFuture<V> extends FutureTask<V> {
 	@Override
 	protected synchronized void done() {
 		notifyListener();
+	}
+	
+	public static <V> ListenableFuture<V> runAsync(Callable<V> task, FutureListener<V> listener) {
+		ListenableFuture<V> future = new ListenableFuture<V>(task);
+		future.setListener(listener);
+		new Thread(future).start();
+		
+		return future;
 	}
 }

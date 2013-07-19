@@ -13,9 +13,9 @@ import android.widget.ArrayAdapter;
 import android.widget.ImageView;
 import android.widget.TextView;
 
-public class ProfileAdapter extends ArrayAdapter<Profile>{
+public class PeerAdapter extends ArrayAdapter<Peer>{
 
-	public ProfileAdapter(Context ctx, List<Profile> profiles) {
+	public PeerAdapter(Context ctx, List<Peer> profiles) {
 		super(ctx, R.layout.list_profile, profiles);
 	}
 	
@@ -43,16 +43,17 @@ public class ProfileAdapter extends ArrayAdapter<Profile>{
 			h = (ViewHolder) view.getTag(R.id.tag_viewholder);
 		}
 		
-		Profile profile = getItem(position);	
-		view.setTag(R.id.tag_profile, profile);
+		Peer peer = getItem(position);	
+		view.setTag(R.id.tag_profile, peer);
 		
-		h.txtName.setText(profile.getDisplayName());
-		h.txtDescription.setText(profile.getEmail());
+		h.txtName.setText(peer.getDisplayName());
+		h.txtDescription.setText(peer.isConnected() ? "connected" : "available");
 		
 		// FIXME Picture
 		
 		return view;
 		
 	}
+	
 
 }

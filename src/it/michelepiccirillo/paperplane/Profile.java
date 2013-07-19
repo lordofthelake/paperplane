@@ -1,23 +1,15 @@
 package it.michelepiccirillo.paperplane;
 
-public class Profile {
-	private String name;
-	private String surname;
+import java.util.concurrent.Callable;
+
+import android.graphics.Bitmap;
+import it.michelepiccirillo.async.ListenableFuture;
+
+public interface Profile {
+	String getDisplayName();
+	String getDescription();
+	String getGooglePlus();
+	String getEmail();
 	
-
-	public Profile() {
-		// TODO Auto-generated constructor stub
-	}
-
-
-	public String getDisplayName() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-
-	public String getEmail() {
-		// TODO Auto-generated method stub
-		return null;
-	}
+	Callable<Bitmap> getPicture();
 }

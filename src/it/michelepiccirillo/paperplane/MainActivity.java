@@ -1,104 +1,121 @@
 package it.michelepiccirillo.paperplane;
 
+import it.michelepiccirillo.paperplane.NetworkingService.NetworkingBinder;
+
 import java.util.ArrayList;
 import java.util.List;
 
+import android.net.wifi.WifiManager;
 import android.os.Bundle;
-import android.provider.ContactsContract;
-import android.accounts.Account;
-import android.accounts.AccountManager;
+import android.os.IBinder;
 import android.app.Activity;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.database.Cursor;
-import android.util.Log;
+import android.content.ServiceConnection;
 import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
+import android.view.View.OnClickListener;
+import android.view.View.OnLongClickListener;
+import android.widget.AdapterView;
+import android.widget.AdapterView.OnItemClickListener;
+import android.widget.AdapterView.OnItemLongClickListener;
 import android.widget.ArrayAdapter;
-import android.widget.ListAdapter;
 import android.widget.ListView;
+import android.widget.Toast;
 
-public class MainActivity extends Activity {
+public class MainActivity extends Activity implements PeerListener, OnItemClickListener, OnItemLongClickListener {
+	private NetworkingService service = null;
 	
-	private List<Profile> list = new ArrayList<Profile>();
-	private ArrayAdapter<Profile> adapter;
+	
+	private List<Peer> list = new ArrayList<Peer>();
+	private ArrayAdapter<Peer> adapter;
 	
 	private ListView profileList;
 	private View loader;
 
+
+	private boolean loading;
+
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
-		adapter = new ProfileAdapter(this, list);
+		adapter = new PeerAdapter(this, list);
 		
 		setContentView(R.layout.activity_main);	
 		
+		WifiManager wifiMan = (WifiManager) getSystemService(Context.WIFI_SERVICE);
+		wifiMan.disconnect();
+		
 		profileList = (ListView) findViewById(R.id.profileList);
+		profileList.setAdapter(adapter);
+		profileList.setOnItemClickListener(this);
+		profileList.setOnItemLongClickListener(this);
+		
 		loader = findViewById(R.id.loader);
 		
 		setLoading(true);
-		startActivity(new Intent(this, SigninActivity.class));
 		
-		//startService(new Intent(this, NetworkingService.class));
+		Intent i = getIntent();
+		OwnProfile p = i.getParcelableExtra(SetupActivity.EXTRA_PROFILE);
 		
-		Cursor c = getContentResolver().query(ContactsContract.Profile.CONTENT_URI, null, null, null, null);
-		int count = c.getCount();
-		String[] columnNames = c.getColumnNames();
-		c.moveToFirst();
-		int position = c.getPosition();
+		Toast.makeText(this, "Hello " + p.getDisplayName() + "!", Toast.LENGTH_LONG).show();
 		
-		Log.d("MainActivity", String.valueOf(count));
-		if (count == 1 && position == 0) {
-		    for (int j = 0; j < columnNames.length; j++) {
-		        String columnName = columnNames[j];
-		        String columnValue = c.getString(c.getColumnIndex(columnName));
-		        
-		        Log.d("MainActivity", columnName + ": " + columnValue);
-		        //Use the values
-		    }
-		}
-		c.close();
+		bindService(new Intent(this, NetworkingService.class), new ServiceConnection() {
+
+			@Override
+			public void onServiceConnected(ComponentName name, IBinder srv) {
+				NetworkingBinder binder = (NetworkingBinder) srv;
+				service = binder.getService();
+				service.setPeerListListener(MainActivity.this);
+				invalidateOptionsMenu();
+			}
+
+			@Override
+			public void onServiceDisconnected(ComponentName name) {
+				service = null;			
+				invalidateOptionsMenu();
+			}
+			
+		}, 0);
+		
+		/*Intent profileActivity = new Intent(this, ProfileActivity.class);
+		profileActivity.putExtra(SetupActivity.EXTRA_PROFILE, (Parcelable) p);
+		startActivity(profileActivity);*/
 		
 		//Log.d("MainActivity", getEmail(this));
 
 	}
 	
-	public void setLoading(boolean loading) {
-		profileList.setVisibility(loading ? View.GONE : View.VISIBLE);
-		loader.setVisibility(loading ? View.VISIBLE : View.GONE);
+	@Override
+	public boolean onPrepareOptionsMenu(Menu menu) {
+		super.onPrepareOptionsMenu(menu);
+		menu.findItem(R.id.menu_refresh).setEnabled(service != null && !loading);
+		return true;
 	}
 	
-	static String getEmail(Context context) {
-	    AccountManager accountManager = AccountManager.get(context); 
-	    Account account = getAccount(accountManager);
-
-	    if (account == null) {
-	      return null;
-	    } else {
-	      return account.name;
-	    }
-	  }
-
-	  private static Account getAccount(AccountManager accountManager) {
-	    Account[] accounts = accountManager.getAccountsByType("com.google");
-	    Account account;
-	    if (accounts.length > 0) {
-	      account = accounts[0];      
-	    } else {
-	      account = null;
-	    }
-	    return account;
-	  }
+	public void setLoading(boolean loading) {
+		this.loading = loading;
+		profileList.setVisibility(loading ? View.GONE : View.VISIBLE);
+		loader.setVisibility(loading ? View.VISIBLE : View.GONE);
+		invalidateOptionsMenu();
+	}
+	
+	public void onPeerListChanged(List<Peer> peers) {
+		list.clear();
+		list.addAll(peers);
+		adapter.notifyDataSetChanged();
+		setLoading(false);
+	}
 
     @Override
     protected void onResume() {
-    	// TODO Auto-generated method stub
     	super.onResume();
     }
     
     @Override
     protected void onPause() {
-    	// TODO Auto-generated method stub
     	super.onPause();
     	
     }
@@ -110,4 +127,34 @@ public class MainActivity extends Activity {
 		return true;
 	}
 
+	@Override
+	public boolean onOptionsItemSelected(MenuItem item) {
+		switch (item.getItemId()) {
+		case R.id.menu_refresh:
+			if(service != null) {
+				setLoading(true);
+				service.refreshPeers();
+			}
+				
+			
+			return true;
+		}
+		return super.onOptionsItemSelected(item);
+	}
+
+
+	@Override
+	public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+		Peer p = (Peer) parent.getItemAtPosition(position);
+		p.connect();
+	}
+
+
+	@Override
+	public boolean onItemLongClick(AdapterView<?> parent, View arg1, int position,
+			long arg3) {
+		Peer p = (Peer) parent.getItemAtPosition(position);
+		Toast.makeText(this, String.valueOf(p.getInetAddress()), Toast.LENGTH_LONG).show();
+		return false;
+	}
 }

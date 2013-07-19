@@ -1,9 +1,13 @@
 package it.michelepiccirillo.paperplane;
 
 import android.os.Bundle;
+import android.app.ActionBar;
 import android.app.Activity;
+import android.graphics.drawable.BitmapDrawable;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.ImageView;
+import android.widget.TextView;
 import android.support.v4.app.NavUtils;
 
 public class ProfileActivity extends Activity {
@@ -13,7 +17,34 @@ public class ProfileActivity extends Activity {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_profile);
 		// Show the Up button in the action bar.
-		getActionBar().setDisplayHomeAsUpEnabled(true);
+		
+		ImageView profilePic = (ImageView) findViewById(R.id.profilePicture);
+		TextView displayName = (TextView) findViewById(R.id.displayName);
+		TextView bio = (TextView) findViewById(R.id.bio);
+		
+		Profile p = getIntent().getParcelableExtra(SetupActivity.EXTRA_PROFILE);
+		
+		ActionBar actionBar = getActionBar();
+		actionBar.setDisplayHomeAsUpEnabled(true);
+		actionBar.setTitle(p.getDisplayName());
+		
+		BitmapDrawable pic = null;
+		try {
+			 pic = new BitmapDrawable(getResources(),p.getPicture().call());
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		if(pic != null) {
+			actionBar.setIcon(pic);
+			profilePic.setImageDrawable(pic);
+		}
+		
+		displayName.setText(p.getDisplayName());
+		bio.setText(p.getDescription());
+			
+		
+		
 	}
 
 	@Override
@@ -34,7 +65,8 @@ public class ProfileActivity extends Activity {
 			//
 			// http://developer.android.com/design/patterns/navigation.html#up-vs-back
 			//
-			NavUtils.navigateUpFromSameTask(this);
+			//NavUtils.navigateUpFromSameTask(this);
+			finish();
 			return true;
 		}
 		return super.onOptionsItemSelected(item);

@@ -18,7 +18,7 @@
     </style>
     
     <style name="AppTheme.ActionBar" parent="@android:style/Widget.Holo.Light.ActionBar">
-        <item name="android:background">#669900</item>
+        <item name="android:background">#0099cc</item>
         <item name="android:titleTextStyle">@style/AppTheme.ActionBar.TitleTextStyle</item>
     </style>
     
@@ -26,5 +26,7 @@
     	<item name="android:textColor">#FFFFFF</item>
     </style>
     
-
+	<style name="SplashTheme" parent="@android:style/Theme.Holo.NoActionBar"> 
+	    <item name="android:windowBackground">@drawable/background</item> 
+	</style>
 </resources>
