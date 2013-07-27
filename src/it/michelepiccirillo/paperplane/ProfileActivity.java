@@ -42,9 +42,7 @@ public class ProfileActivity extends Activity {
 		
 		displayName.setText(p.getDisplayName());
 		bio.setText(p.getDescription());
-			
-		
-		
+
 	}
 
 	@Override

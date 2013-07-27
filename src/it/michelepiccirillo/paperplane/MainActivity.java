@@ -5,19 +5,17 @@ import it.michelepiccirillo.paperplane.NetworkingService.NetworkingBinder;
 import java.util.ArrayList;
 import java.util.List;
 
-import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.app.Activity;
+import android.app.Dialog;
+import android.app.ProgressDialog;
 import android.content.ComponentName;
-import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.View.OnClickListener;
-import android.view.View.OnLongClickListener;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.AdapterView.OnItemLongClickListener;
@@ -26,7 +24,6 @@ import android.widget.ListView;
 import android.widget.Toast;
 
 public class MainActivity extends Activity implements PeerListener, OnItemClickListener, OnItemLongClickListener {
-	private NetworkingService service = null;
 	
 	
 	private List<Peer> list = new ArrayList<Peer>();
@@ -34,8 +31,11 @@ public class MainActivity extends Activity implements PeerListener, OnItemClickL
 	
 	private ListView profileList;
 	private View loader;
-
-
+	
+	private NetworkingService service = null;
+	private ServiceConnection serviceConnection = null;
+	
+	private Dialog connectionDialog;
 	private boolean loading;
 
 	@Override
@@ -45,8 +45,7 @@ public class MainActivity extends Activity implements PeerListener, OnItemClickL
 		
 		setContentView(R.layout.activity_main);	
 		
-		WifiManager wifiMan = (WifiManager) getSystemService(Context.WIFI_SERVICE);
-		wifiMan.disconnect();
+		
 		
 		profileList = (ListView) findViewById(R.id.profileList);
 		profileList.setAdapter(adapter);
@@ -62,7 +61,7 @@ public class MainActivity extends Activity implements PeerListener, OnItemClickL
 		
 		Toast.makeText(this, "Hello " + p.getDisplayName() + "!", Toast.LENGTH_LONG).show();
 		
-		bindService(new Intent(this, NetworkingService.class), new ServiceConnection() {
+		serviceConnection = new ServiceConnection() {
 
 			@Override
 			public void onServiceConnected(ComponentName name, IBinder srv) {
@@ -78,7 +77,9 @@ public class MainActivity extends Activity implements PeerListener, OnItemClickL
 				invalidateOptionsMenu();
 			}
 			
-		}, 0);
+		};
+		
+		bindService(new Intent(this, NetworkingService.class), serviceConnection, 0);
 		
 		/*Intent profileActivity = new Intent(this, ProfileActivity.class);
 		profileActivity.putExtra(SetupActivity.EXTRA_PROFILE, (Parcelable) p);
@@ -86,6 +87,12 @@ public class MainActivity extends Activity implements PeerListener, OnItemClickL
 		
 		//Log.d("MainActivity", getEmail(this));
 
+	}
+	
+	@Override
+	protected void onDestroy() {
+		unbindService(serviceConnection);
+		super.onDestroy();
 	}
 	
 	@Override
@@ -122,7 +129,6 @@ public class MainActivity extends Activity implements PeerListener, OnItemClickL
 
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
-		// Inflate the menu; this adds items to the action bar if it is present.
 		getMenuInflater().inflate(R.menu.activity_main, menu);
 		return true;
 	}
@@ -145,8 +151,9 @@ public class MainActivity extends Activity implements PeerListener, OnItemClickL
 
 	@Override
 	public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+		connectionDialog = ProgressDialog.show(this, "", "Connecting...", true);
 		Peer p = (Peer) parent.getItemAtPosition(position);
-		p.connect();
+		service.connect(p);
 	}
 
 
@@ -154,7 +161,14 @@ public class MainActivity extends Activity implements PeerListener, OnItemClickL
 	public boolean onItemLongClick(AdapterView<?> parent, View arg1, int position,
 			long arg3) {
 		Peer p = (Peer) parent.getItemAtPosition(position);
-		Toast.makeText(this, String.valueOf(p.getInetAddress()), Toast.LENGTH_LONG).show();
-		return false;
+		Toast.makeText(this, "Peer info: " + p.toString(), Toast.LENGTH_LONG).show();
+		
+		return true;
+	}
+
+	@Override
+	public void onPeerConnected(Peer p) {
+		connectionDialog.dismiss();	
+		Toast.makeText(this, "Connected to: " + p.toString(), Toast.LENGTH_LONG).show();
 	}
 }

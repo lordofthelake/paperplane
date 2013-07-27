@@ -1,15 +1,12 @@
 package it.michelepiccirillo.paperplane;
 
-import it.michelepiccirillo.paperplane.client.HttpClient;
-
-import java.io.BufferedReader;
-import java.io.FileReader;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -18,7 +15,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.net.wifi.p2p.WifiP2pConfig;
+import android.net.wifi.WifiManager;
 import android.net.wifi.p2p.WifiP2pDevice;
 import android.net.wifi.p2p.WifiP2pDeviceList;
 import android.net.wifi.p2p.WifiP2pInfo;
@@ -45,6 +42,8 @@ public class NetworkingService extends Service implements ConnectionInfoListener
 		}
 	}
 	
+	private boolean booted = false;
+	
 	private final IBinder binder = new NetworkingBinder();
 	
 	private WifiP2pManager manager;
@@ -54,88 +53,147 @@ public class NetworkingService extends Service implements ConnectionInfoListener
 	
 	private WebServer webServer;
 	
-	private boolean booted = false;
+	private WifiP2pDnsSdServiceInfo serviceInfo;
 
 	private WeakReference<PeerListener> peerListener;
 	
 	private List<WifiP2pDevice> available = new ArrayList<WifiP2pDevice>();
 	private Map<String, Peer> known =  new HashMap<String, Peer>();
 	
+	private List<String> pendingConnections = new LinkedList<String>();
+	
 	private OwnProfile profile;
 
 
+	// ----------- Application lifecycle events handling -----------
+	
 	@Override
 	public IBinder onBind(Intent arg0) {
+		Log.i(TAG, "Activity bound, disconnecting WiFi");
+		WifiManager wifiMan = (WifiManager) getSystemService(Context.WIFI_SERVICE);
+		wifiMan.disconnect();
+		
 		return binder;
+	}
+	
+	@Override
+	public boolean onUnbind(Intent intent) {
+		Log.i(TAG, "All activities unbound, reconnecting to WiFi");
+		WifiManager wifiMan = (WifiManager) getSystemService(Context.WIFI_SERVICE);
+		wifiMan.reconnect();
+		
+		Log.e(TAG, "Debug mode: shutting down after activity exit");
+		stopSelf();
+		
+		return false;
 	}
 	
 
 	@Override
 	public int onStartCommand(Intent intent, int flags, int startId) {
-		
-		
 		profile = intent.getParcelableExtra(SetupActivity.EXTRA_PROFILE);
 		if(profile == null)
 			throw new IllegalArgumentException("A profile must be provided to the service");
 		
-		Log.i(TAG, "Service started! I'm " + profile.getDisplayName());
-
-		if(!booted) {
-			manager = (WifiP2pManager) getSystemService(Context.WIFI_P2P_SERVICE);
-		    channel = manager.initialize(this, getMainLooper(), null);
-		    
-			IntentFilter intentFilter;
-		    receiver = new WiFiDirectBroadcastReceiver(manager, channel, this);
-		    
-		    intentFilter = new IntentFilter();
-		    intentFilter.addAction(WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION);
-		    intentFilter.addAction(WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION);
-		    intentFilter.addAction(WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION);
-		    intentFilter.addAction(WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION);
-		    
-		    receiver = new WiFiDirectBroadcastReceiver(manager, channel, this);
-	        registerReceiver(receiver, intentFilter);
-	        
-	        startWebserver();
-	        booted = true;
-	        
-		}
+		Log.w(TAG, "Service starting! I'm " + profile.getDisplayName());
+		
+		start();
 		
 		if(webServer != null)
 			webServer.setProfile(profile);
-	    
+		
+		Log.w(TAG, "Service started!");
+		
 	    return START_REDELIVER_INTENT;
 	}
 	
-	
-    private void startWebserver() {
-    	
-    	webServer = new WebServer();
-    	Thread serverThread = new Thread(webServer);
-    	serverThread.start();
-    	
-    	final int port = webServer.getUsedPort();
-    	
-        Map<String, String> record = new HashMap<String, String>();
-        record.put("listenport", String.valueOf(port));
-        record.put("displayname", profile.getDisplayName());
-        
-        WifiP2pDnsSdServiceInfo serviceInfo =
-                WifiP2pDnsSdServiceInfo.newInstance("PaperPlane", "_http._tcp", record);
-        
-        manager.addLocalService(channel, serviceInfo, new ActionListener() {
-            @Override
-            public void onSuccess() {
-                Log.i(TAG, "Webserver started and listening on " + port);
-            }
 
-            @Override
-            public void onFailure(int arg0) {
-            	Log.e(TAG, "Cannot expose service: " + arg0);
-            }
+	@Override
+	public void onDestroy() {
+		stop();
+		Log.w(TAG, "Service stopped!");
+		super.onDestroy();
+	}
+	
+	// ----------- Startup/Shutdown methods -----------
+	
+	private void start() {
+		if(!booted) {
+			Log.w(TAG, "Starting up");
+			
+			startWifiDirect();
+			startWebserver();
+			startPeerDiscovery();
+			startServiceDiscovery();
+			
+			booted = true;
+		}
+	}
+	
+	private void stop() {
+		if(booted) {
+			Log.w(TAG, "Shutting down");
+
+			stopServiceDiscovery();
+			stopPeerDiscovery();
+			stopWebserver();
+			stopWifiDirect();
+			
+			booted = false;
+		}
+	}
+	
+	private void startWifiDirect() {
+		manager = (WifiP2pManager) getSystemService(Context.WIFI_P2P_SERVICE);
+	    channel = manager.initialize(this, getMainLooper(), null);
+	    
+		IntentFilter intentFilter;
+	    receiver = new WiFiDirectBroadcastReceiver(manager, channel, this);
+	    
+	    intentFilter = new IntentFilter();
+	    intentFilter.addAction(WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION);
+	    intentFilter.addAction(WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION);
+	    intentFilter.addAction(WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION);
+	    intentFilter.addAction(WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION);
+	    
+        registerReceiver(receiver, intentFilter);
+	}
+	
+	private void stopWifiDirect() {
+		if(receiver != null)
+			unregisterReceiver(receiver);
+		
+		if(manager != null)
+			manager.removeGroup(channel, null);
+	}
+	
+	private void startPeerDiscovery() {
+        manager.discoverPeers(channel, new ActionListener() {
+
+			@Override
+			public void onFailure(int reason) {
+				Log.w(TAG, "Peer discovery failure: " + reason);
+				
+			}
+
+			@Override
+			public void onSuccess() {
+				Log.i(TAG, "Peer discovery started");
+				
+			}
+        	
         });
-        
-	    DnsSdTxtRecordListener txtListener = new DnsSdTxtRecordListener() {
+	}
+	
+	private void stopPeerDiscovery() {
+		if(manager != null)
+			manager.stopPeerDiscovery(channel, null);
+		
+		available.clear();
+	}
+	
+	private void startServiceDiscovery() {
+		DnsSdTxtRecordListener txtListener = new DnsSdTxtRecordListener() {
 	        public void onDnsSdTxtRecordAvailable(
 	                String fullDomain, Map<String, String> record, WifiP2pDevice device) {
 	                Log.d(TAG, "DnsSdTxtRecord available - " + fullDomain + " " + record.toString());
@@ -164,35 +222,17 @@ public class NetworkingService extends Service implements ConnectionInfoListener
 	                new ActionListener() {
 	                    @Override
 	                    public void onSuccess() {
-	                        Log.i(TAG, "Service discovery started");
+	                        Log.i(TAG, "Service request added");
 	                    }
 
 	                    @Override
 	                    public void onFailure(int code) {
-	                        Log.w(TAG, "Service discovery failure: " + code);
+	                        Log.w(TAG, "Service request addition failure: " + code);
 	                    }
 	                });
 	        
-	        manager.discoverPeers(channel, new ActionListener() {
-
-				@Override
-				public void onFailure(int reason) {
-					Log.w(TAG, "Peer discovery failure: " + reason);
-					
-				}
-
-				@Override
-				public void onSuccess() {
-					Log.i(TAG, "Peer discovery started");
-					
-				}
-	        	
-	        });
-
-	        
-        
 	        manager.discoverServices(channel, new ActionListener() {
-	
+	        	
 	            @Override
 	            public void onSuccess() {
 	            	Log.i(TAG, "Service discovery started");
@@ -206,22 +246,97 @@ public class NetworkingService extends Service implements ConnectionInfoListener
 	                }
 	            }
 	        });
+
+	}
+	
+	private void stopServiceDiscovery() {
+		if(manager != null)
+			manager.clearServiceRequests(channel, null);
+		
+		known.clear();
+	}	
+	
+    private void startWebserver() {
+    	
+    	webServer = new WebServer();
+    	Thread serverThread = new Thread(webServer);
+    	serverThread.start();
+    	
+    	final int port = webServer.getUsedPort();
+    	
+        Map<String, String> record = new HashMap<String, String>();
+        record.put("listenport", String.valueOf(port));
+        record.put("displayname", profile.getDisplayName());
+        
+        serviceInfo = WifiP2pDnsSdServiceInfo.newInstance("PaperPlane", "_http._tcp", record);
+        
+        manager.addLocalService(channel, serviceInfo, new ActionListener() {
+            @Override
+            public void onSuccess() {
+                Log.i(TAG, "Webserver exposed on " + port);
+            }
+
+            @Override
+            public void onFailure(int arg0) {
+            	Log.e(TAG, "Cannot expose service: " + arg0);
+            }
+        });
     }
     
+	private void stopWebserver() {
+		if(webServer != null) {
+			try {
+				webServer.stop();
+			} catch (IOException e) { }
+		}
+		
+		if(manager != null && serviceInfo != null)
+			manager.removeLocalService(channel, serviceInfo, null);
+	}
+	
+	// ----------- Network operations -----------
+    
     public void refreshPeers() {
-    	
     	manager.requestPeers(channel, new PeerListListener() {
 
 			@Override
 			public void onPeersAvailable(WifiP2pDeviceList peers) {
+				Log.d(TAG, "New peer list available");
+				
 				Collection<WifiP2pDevice> coll = peers.getDeviceList();
 				available.clear();
 				available.addAll(coll);
 				notifyPeerChange();
 			}
-    		
     	});
     }
+    
+    public void connect(Peer peer) {
+    	Log.d(TAG, "Requesting a connection to " + peer);
+    	if(peer.isConnected()) {
+    		notifyPeerConnected(peer);
+    	} else {
+    		pendingConnections.add(peer.getDevice().deviceAddress);
+    		
+	    	manager.connect(channel, peer.getConfig(), new ActionListener () {
+	
+				@Override
+				public void onFailure(int reason) {
+					Log.w(TAG, "Connection request failed " + reason);
+				}
+	
+				@Override
+				public void onSuccess() {
+					Log.i(TAG, "Made connection request");	
+				}
+	    		
+	    	});
+    	}
+    }
+
+	public void setPeerListListener(PeerListener listener) {
+		this.peerListener = new WeakReference<PeerListener>(listener);
+	}
     
     private void notifyPeerChange() {
     	PeerListener listener = null;
@@ -234,21 +349,38 @@ public class NetworkingService extends Service implements ConnectionInfoListener
     	List<Peer> peers = new ArrayList<Peer>();
     	for(WifiP2pDevice d : available) {
     		Peer p = known.get(d.deviceAddress);
-    		if(p != null)
+    		Log.i(TAG, "Peer status: " + d.status);
+    		if(p != null) {
+    			p.setDevice(d);
     			peers.add(p);
+    		}
+    		
+    		if(p.isConnected() && pendingConnections.contains(d.deviceAddress)) {
+    			pendingConnections.remove(d.deviceAddress);
+    			notifyPeerConnected(p);
+    		}
     	}
     	
-
 		Log.d(TAG, "Peers change: " + peers);
     	
     	listener.onPeerListChanged(peers);
     }
     
+    private void notifyPeerConnected(Peer p) {
+    	PeerListener listener = null;
+    	if(peerListener != null) 
+    		listener = peerListener.get();
+    	
+    	if(listener != null)
+    		listener.onPeerConnected(p);
+    }
+   
+    
     private Peer getOrCreatePeer(WifiP2pDevice device) {
     	String deviceAddress = device.deviceAddress;
     	Peer peer = known.get(deviceAddress);
     	if(peer == null) {
-    		peer = new Peer(this, device);
+    		peer = new Peer(device);
     		known.put(deviceAddress, peer);
     	} else {
     		peer.setDevice(device);
@@ -256,54 +388,11 @@ public class NetworkingService extends Service implements ConnectionInfoListener
     	
     	return peer;
     }
-    
-    void connect(Peer peer) {
-    	Log.d(TAG, "Requesting a connection to " + peer);
-    	manager.connect(channel, peer.getConfig(), new ActionListener () {
-
-			@Override
-			public void onFailure(int reason) {
-				Log.w(TAG, "Connection request failed " + reason);
-				
-			}
-
-			@Override
-			public void onSuccess() {
-				Log.i(TAG, "Made connection request");
-				
-			}
-    		
-    	});
-    }
-	
-	@Override
-	public void onDestroy() {
-		if(receiver != null)
-			unregisterReceiver(receiver);
-		
-		if(webServer != null) {
-			try {
-				webServer.stop();
-			} catch (IOException e) {
-				Log.d(TAG, "Exception while shutting down webserver", e);
-			}
-		}
-		
-		booted = false;
-		
-		Log.w(TAG, "Service shut down");
-		super.onDestroy();
-	}
-
-	public void setPeerListListener(PeerListener listener) {
-		this.peerListener = new WeakReference<PeerListener>(listener);
-	}
-
 
 	@Override
 	public void onConnectionInfoAvailable(WifiP2pInfo info) {
 		InetAddress groupOwnerAddress = info.groupOwnerAddress;
-		notifyPeerChange();
+		refreshPeers();
 		if(info.groupFormed) {
 			
 			Log.i(TAG, "I'm connected. Owner is " + groupOwnerAddress + ". I'm available on " + webServer.getPublicSocketAddress());

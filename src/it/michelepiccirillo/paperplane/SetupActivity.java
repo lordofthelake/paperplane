@@ -11,7 +11,6 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.List;
 import java.util.concurrent.Callable;
 
 import com.google.android.gms.common.ConnectionResult;
@@ -21,28 +20,22 @@ import com.google.android.gms.plus.GooglePlusUtil;
 import com.google.android.gms.plus.PlusClient;
 import com.google.android.gms.plus.PlusClient.OnPersonLoadedListener;
 import com.google.android.gms.plus.model.people.Person;
-import com.google.android.gms.plus.model.people.Person.Emails;
 import com.google.android.gms.plus.model.people.Person.Image;
 
 import android.app.Activity;
-import android.app.ProgressDialog;
-import android.content.Context;
 import android.content.Intent;
 import android.content.IntentSender.SendIntentException;
 import android.graphics.Bitmap;
-import android.net.wifi.WifiManager;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Parcelable;
 import android.util.Log;
-import android.view.View;
 import android.widget.Toast;
 
 public class SetupActivity extends Activity implements
 	ConnectionCallbacks, OnConnectionFailedListener, OnPersonLoadedListener {
 	public static final String EXTRA_PROFILE = "profile";
 	
-	private static final String TAG = "SigninActivity";
+	private static final String TAG = "SetupActivity";
 	
 	private static final String PROFILE_FILE = "profile.obj";
 	
@@ -50,7 +43,6 @@ public class SetupActivity extends Activity implements
 	
 	private PlusClient plusClient;
 	
-	private ConnectionResult connectionResult;
 
 	private OwnProfile profile;
 	
@@ -84,7 +76,6 @@ public class SetupActivity extends Activity implements
 			public void onSuccess(OwnProfile object) {
 				profile = object;
 				startApplication();
-				
 			}
 
 			@Override
@@ -143,16 +134,13 @@ public class SetupActivity extends Activity implements
             }
         }
 		
-        // Save the result and resolve the connection failure upon a user click.
-       connectionResult = result;
-       
+		Toast.makeText(this, "Connection failed", Toast.LENGTH_LONG).show();
 	}
 	
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 		Log.d("SigninActivity", "onActivityResult()");
 		if (requestCode == REQUEST_CODE_RESOLVE_ERR && resultCode == RESULT_OK) {
-            connectionResult = null;
             plusClient.connect();
         }
 	}
@@ -160,10 +148,7 @@ public class SetupActivity extends Activity implements
 	@Override
 	public void onConnected(Bundle arg0) {
 		Log.d("SigninActivity", "onConnected()");
-		String accountName = plusClient.getAccountName();
-		
         plusClient.loadPerson(this, "me");
-        
         // next: onPersonLoaded()
 	}
 
