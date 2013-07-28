@@ -1,12 +1,20 @@
-package it.michelepiccirillo.paperplane;
+package it.michelepiccirillo.paperplane.activities;
 
-import it.michelepiccirillo.async.FutureListener;
-import it.michelepiccirillo.async.ListenableFuture;
-import it.michelepiccirillo.paperplane.client.BitmapHttpTask;
+import it.michelepiccirillo.paperplane.R;
+import it.michelepiccirillo.paperplane.R.layout;
+import it.michelepiccirillo.paperplane.async.FutureListener;
+import it.michelepiccirillo.paperplane.async.ListenableFuture;
+import it.michelepiccirillo.paperplane.client.BitmapTranscoder;
+import it.michelepiccirillo.paperplane.client.HttpTask;
+import it.michelepiccirillo.paperplane.client.HttpTask.Method;
+import it.michelepiccirillo.paperplane.domain.OwnProfile;
+import it.michelepiccirillo.paperplane.network.NetworkingService;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.InvalidClassException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.MalformedURLException;
@@ -26,9 +34,11 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.IntentSender.SendIntentException;
 import android.graphics.Bitmap;
+import android.graphics.Bitmap.CompressFormat;
 import android.os.Bundle;
 import android.os.Parcelable;
 import android.util.Log;
+import android.widget.ImageView;
 import android.widget.Toast;
 
 public class SetupActivity extends Activity implements
@@ -63,11 +73,17 @@ public class SetupActivity extends Activity implements
 
 			@Override
 			public OwnProfile call() throws Exception {
-				FileInputStream fis = openFileInput(PROFILE_FILE);
-				ObjectInputStream in = new ObjectInputStream(fis);
-				OwnProfile profile = (OwnProfile) in.readObject();
-				
-				return profile;
+					try {
+					FileInputStream fis = openFileInput(PROFILE_FILE);
+					ObjectInputStream in = new ObjectInputStream(fis);
+					OwnProfile profile = (OwnProfile) in.readObject();
+					
+					return profile;
+				} catch (InvalidClassException icEx) {
+					File f = getFileStreamPath(PROFILE_FILE);
+					f.delete();
+					throw new FileNotFoundException();
+				}
 			}
 			
 		}, new FutureListener<OwnProfile>() {
@@ -124,8 +140,9 @@ public class SetupActivity extends Activity implements
 	@Override
 	public void onConnectionFailed(ConnectionResult result) {
 
-		Log.d("SigninActivity", "onConnectionFailed(): " + result.getErrorCode());
-		if (result.hasResolution()) {
+		Log.w(TAG, "onConnectionFailed(): " + result.getErrorCode());
+		if (result.hasResolution() || result.getErrorCode() == ConnectionResult.SIGN_IN_REQUIRED) {
+			Log.d(TAG, "Resolving!");
             try {
                 result.startResolutionForResult(this, REQUEST_CODE_RESOLVE_ERR);
             } catch (SendIntentException e) {
@@ -134,7 +151,7 @@ public class SetupActivity extends Activity implements
             }
         }
 		
-		Toast.makeText(this, "Connection failed", Toast.LENGTH_LONG).show();
+		//Toast.makeText(this, "Connection failed", Toast.LENGTH_LONG).show();
 	}
 	
 	@Override
@@ -173,16 +190,18 @@ public class SetupActivity extends Activity implements
 			plusClient.disconnect();
 			
 			try {
-				ListenableFuture.runAsync(new BitmapHttpTask(new URL(url)), new FutureListener<Bitmap>() {
+				ListenableFuture.runAsync(
+						new HttpTask<Bitmap>(new URL(url), Method.GET, new BitmapTranscoder(CompressFormat.PNG, 0), null), 
+						new FutureListener<Bitmap>() {
 
 					@Override
 					public void onSuccess(Bitmap object) {
 						OwnProfile profile = new OwnProfile();
 						profile.setDisplayName(name);
-						profile.setBio(bio == null ? "" : bio);
+						profile.setDescription(bio == null ? "" : bio);
 						profile.setEmail(email);
 						profile.setGooglePlus(plusUrl);
-						profile.setPicture(object);
+						profile.setPictureBitmap(object);
 						
 						SetupActivity.this.profile = profile;
 						
@@ -200,7 +219,7 @@ public class SetupActivity extends Activity implements
 				e.printStackTrace();
 			}
 		} else {
-			Log.e("Signin Activity", "Error loading person: " + result.getErrorCode());
+			Log.e(TAG, "Error loading person: " + result.getErrorCode());
 		}
 		
 	}

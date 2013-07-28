@@ -1,4 +1,4 @@
-package it.michelepiccirillo.paperplane;
+package it.michelepiccirillo.paperplane.network;
 
 
 import android.content.BroadcastReceiver;

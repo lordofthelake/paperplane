@@ -1,9 +1,9 @@
-package it.michelepiccirillo.paperplane;
+package it.michelepiccirillo.paperplane.domain;
 
 import java.util.concurrent.Callable;
 
 import android.graphics.Bitmap;
-import it.michelepiccirillo.async.ListenableFuture;
+import it.michelepiccirillo.paperplane.async.ListenableFuture;
 
 public interface Profile {
 	String getDisplayName();

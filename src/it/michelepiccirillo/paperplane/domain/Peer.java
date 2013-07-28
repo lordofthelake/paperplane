@@ -1,33 +1,41 @@
-package it.michelepiccirillo.paperplane;
+package it.michelepiccirillo.paperplane.domain;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.lang.ref.WeakReference;
+import java.lang.ref.SoftReference;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.util.Arrays;
 import java.util.concurrent.Callable;
 
-import org.apache.http.conn.util.InetAddressUtils;
 
+import android.graphics.Bitmap;
+import android.graphics.Bitmap.CompressFormat;
 import android.net.wifi.WpsInfo;
 import android.net.wifi.p2p.WifiP2pConfig;
 import android.net.wifi.p2p.WifiP2pDevice;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.util.Log;
-
-import it.michelepiccirillo.async.ListenableFuture;
+import it.michelepiccirillo.paperplane.client.BitmapTranscoder;
 import it.michelepiccirillo.paperplane.client.HttpClient;
+import it.michelepiccirillo.paperplane.network.WebServer;
 
 public class Peer implements Parcelable {
-	public class Client extends HttpClient {
 
-		private Client(InetSocketAddress host) {
-			super(host);
-		}
+	private class PeerProfile extends NetworkProfile {
+		private Peer owner = null;
 		
+		@Override
+		public Callable<Bitmap> getPicture() {
+			if(owner == null)
+				throw new IllegalStateException("This should never happen!");
+			
+			HttpClient client = owner.getClient();
+			
+			return client.get(WebServer.ENDPOINT_VCARD_PROFILE_PICTURE, 
+							new BitmapTranscoder(CompressFormat.PNG, 0));
+		}
 	}
 	
 	private WifiP2pDevice device;
@@ -35,8 +43,8 @@ public class Peer implements Parcelable {
 	private String display;
 	
 	private transient InetAddress inetAddress;
-	private transient Client client;
-	private transient Profile profile;
+	private transient HttpClient client;
+	private transient SoftReference<Profile> profile;
 	
 
 	public Peer(WifiP2pDevice device) {
@@ -44,23 +52,60 @@ public class Peer implements Parcelable {
 	}
 	
 	public boolean hasCachedProfile() {
-		return profile != null;
+		return profile != null && profile.get() != null;
 	}
 	
 	public WifiP2pDevice getDevice() {
 		return device;
 	}
 	
+	public synchronized HttpClient getClient() {
+		if(client == null) {
+			client = new HttpClient(getInetSocketAddress());
+			client.setTimeout(10000);
+		}
+		
+		return client;
+	}
+	
 	public void setDevice(WifiP2pDevice dev) {
 		this.device = dev;
 	}
 	
-	WifiP2pConfig getConfig() {
+	public WifiP2pConfig getConfig() {
 		WifiP2pConfig config = new WifiP2pConfig();
         config.deviceAddress = device.deviceAddress;
         config.wps.setup = WpsInfo.PBC;
         
         return config;
+	}
+	
+	public Callable<Profile> getProfile() {
+		final Profile cached = (profile != null) ? profile.get() : null;
+		if(cached != null) {
+			return new Callable<Profile>() {
+
+				@Override
+				public Profile call() throws Exception {
+					return cached;
+				}
+				
+			};
+		} else {
+			return new Callable<Profile>() {
+
+				@Override
+				public Profile call() throws Exception {
+					PeerProfile p = (PeerProfile) getClient().get(WebServer.ENDPOINT_VCARD_PROFILE_JSON, new NetworkProfile.Transcoder(PeerProfile.class)).call();
+					p.owner = Peer.this;
+					profile = new SoftReference<Profile>(p);
+					
+					return p;
+				}
+				
+			};
+			
+		}
 	}
 	
 	public void setDisplayName(String name) {
@@ -91,14 +136,14 @@ public class Peer implements Parcelable {
 		return device.status == WifiP2pDevice.AVAILABLE;
 	}
 	
-	public InetSocketAddress getInetSocketAddress() {
+	public synchronized InetSocketAddress getInetSocketAddress() {
 		if(!hasInetAddress())
 			throw new IllegalStateException("The IP of this device is unknown");
 		
 		return new InetSocketAddress(getInetAddress(), getPort());
 	}
 	
-	public InetAddress getInetAddress() {
+	public synchronized InetAddress getInetAddress() {
 		if(inetAddress == null) {
 			String MAC = device.deviceAddress;
 			
@@ -107,7 +152,7 @@ public class Peer implements Parcelable {
 		        br = new BufferedReader(new FileReader("/proc/net/arp"));
 		        String line;
 		        while ((line = br.readLine()) != null) {
-		        	Log.w("ARP", line);
+		        	//Log.w("ARP", line);
 		            String[] splitted = line.split(" +");
 		            if (splitted != null && splitted.length >= 4) {
 		                // Basic sanity check

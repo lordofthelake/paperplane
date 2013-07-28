@@ -17,7 +17,7 @@
 package it.michelepiccirillo.paperplane.client;
 
 
-import it.michelepiccirillo.async.*;
+import it.michelepiccirillo.paperplane.async.*;
 
 import java.io.FilterInputStream;
 import java.io.IOException;

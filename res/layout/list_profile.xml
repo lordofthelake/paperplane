@@ -20,7 +20,8 @@
         android:layout_above="@+id/txtDescription"
         android:layout_toRightOf="@+id/imgPicture"
         android:text="Medium Text"
-        android:textAppearance="?android:attr/textAppearanceMedium" />
+        android:textAppearance="?android:attr/textAppearanceMedium" 
+        android:textColor="?android:attr/textColorSecondary"/>
 
     <ImageView
         android:id="@+id/imgPicture"

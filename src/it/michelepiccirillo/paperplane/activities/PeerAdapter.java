@@ -1,6 +1,11 @@
-package it.michelepiccirillo.paperplane;
+package it.michelepiccirillo.paperplane.activities;
 
 
+
+import it.michelepiccirillo.paperplane.R;
+import it.michelepiccirillo.paperplane.R.id;
+import it.michelepiccirillo.paperplane.R.layout;
+import it.michelepiccirillo.paperplane.domain.Peer;
 
 import java.util.List;
 

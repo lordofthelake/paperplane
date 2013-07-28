@@ -1,4 +1,8 @@
-package it.michelepiccirillo.paperplane;
+package it.michelepiccirillo.paperplane.network;
+
+import it.michelepiccirillo.paperplane.activities.SetupActivity;
+import it.michelepiccirillo.paperplane.domain.OwnProfile;
+import it.michelepiccirillo.paperplane.domain.Peer;
 
 import java.io.IOException;
 import java.lang.ref.WeakReference;
@@ -36,8 +40,8 @@ public class NetworkingService extends Service implements ConnectionInfoListener
 
 	private static final String TAG = "NetworkingService";
 	
-	class NetworkingBinder extends Binder {
-		NetworkingService getService() {
+	public class NetworkingBinder extends Binder {
+		public NetworkingService getService() {
 			return NetworkingService.this;
 		}
 	}
@@ -313,24 +317,28 @@ public class NetworkingService extends Service implements ConnectionInfoListener
     
     public void connect(Peer peer) {
     	Log.d(TAG, "Requesting a connection to " + peer);
-    	if(peer.isConnected()) {
+    	if(peer.isConnected() && peer.hasInetAddress()) {
     		notifyPeerConnected(peer);
     	} else {
     		pendingConnections.add(peer.getDevice().deviceAddress);
     		
-	    	manager.connect(channel, peer.getConfig(), new ActionListener () {
-	
-				@Override
-				public void onFailure(int reason) {
-					Log.w(TAG, "Connection request failed " + reason);
-				}
-	
-				@Override
-				public void onSuccess() {
-					Log.i(TAG, "Made connection request");	
-				}
-	    		
-	    	});
+    		if(peer.isConnected()) {
+    			manager.requestConnectionInfo(channel, this);
+    		} else {
+		    	manager.connect(channel, peer.getConfig(), new ActionListener () {
+		
+					@Override
+					public void onFailure(int reason) {
+						Log.w(TAG, "Connection request failed " + reason);
+					}
+		
+					@Override
+					public void onSuccess() {
+						Log.i(TAG, "Made connection request");	
+					}
+		    		
+		    	});
+    		}
     	}
     }
 
@@ -353,11 +361,11 @@ public class NetworkingService extends Service implements ConnectionInfoListener
     		if(p != null) {
     			p.setDevice(d);
     			peers.add(p);
-    		}
-    		
-    		if(p.isConnected() && pendingConnections.contains(d.deviceAddress)) {
-    			pendingConnections.remove(d.deviceAddress);
-    			notifyPeerConnected(p);
+    			
+    			if(p.isConnected() && pendingConnections.contains(d.deviceAddress)) {
+        			pendingConnections.remove(d.deviceAddress);
+        			notifyPeerConnected(p);
+        		}
     		}
     	}
     	

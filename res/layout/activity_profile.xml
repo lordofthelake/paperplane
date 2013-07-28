@@ -2,57 +2,138 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".ProfileActivity" >
+    tools:context=".ProfileActivity"
+    android:layout_marginTop="8dp" 
+    android:layout_marginLeft="16dp"
+    android:layout_marginRight="16dp" >
 
-    <QuickContactBadge
-        android:id="@+id/profilePicture"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:id="@+id/section_name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <ImageView
+            android:src="@drawable/profile"
+            android:id="@+id/profilePicture"
+            android:layout_width="48dp"
+            android:layout_height="48dp" 
+            android:background="#eeeeee" />
+
+        <TextView
+            android:id="@+id/displayName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical"
+            android:text="..."
+            android:layout_marginLeft="16dp"
+            android:textAppearance="?android:attr/textAppearanceMedium" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/section_bio"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentLeft="true"
-        android:layout_alignParentTop="true"
-        android:layout_marginLeft="19dp"
-        android:layout_marginTop="14dp" />
+        android:layout_below="@+id/section_name"
+        android:orientation="vertical"
+       	android:layout_marginTop="8dp"
+       	android:visibility="gone">
+        
+        <TextView
+            style="?android:attr/listSeparatorTextViewStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Bio" />
 
-    <TextView
-        android:id="@+id/displayName"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignTop="@+id/profilePicture"
-        android:layout_centerHorizontal="true"
-        android:text="Large Text"
-        android:textAppearance="?android:attr/textAppearanceLarge" />
 
-    <View
-        android:id="@+id/separator1"
-        android:layout_width="fill_parent"
-        android:layout_height="1dp"
-        android:layout_alignLeft="@+id/profilePicture"
-        android:layout_alignParentRight="true"
-        android:layout_marginRight="19dp"
-        android:layout_marginTop="14dp"
-        android:layout_below="@+id/profilePicture"
-        android:background="@android:color/darker_gray" />
+        <TextView
+            android:id="@+id/bio"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text=""
+            android:textAppearance="?android:attr/textAppearanceSmall" />
 
-    <TextView
-        android:id="@+id/bio"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignLeft="@+id/separator1"
-        android:layout_alignRight="@+id/separator1"
-        android:layout_below="@+id/separator1"
-        android:layout_marginTop="16dp"
-        android:text="Medium Text"
-        android:textAppearance="?android:attr/textAppearanceMedium" />
+    </LinearLayout>
     
-    <View
-        android:id="@+id/separator2"
-        android:layout_width="fill_parent"
-        android:layout_height="1dp"
-        android:layout_alignLeft="@+id/profilePicture"
-        android:layout_alignParentRight="true"
-        android:layout_marginRight="19dp"
-        android:layout_marginTop="14dp"
-        android:layout_below="@+id/bio"
-        android:background="@android:color/darker_gray" />
+    <LinearLayout
+        android:id="@+id/section_profiles"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentLeft="true"
+        android:layout_below="@+id/section_bio"
+        android:orientation="vertical" 
+        android:layout_marginTop="16dp"
+        >
+        
+        
+        
+        <TextView
+            style="?android:attr/listSeparatorTextViewStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Contacts" />
+        
+        <LinearLayout
+            android:layout_width="match_parent"
+        	android:layout_height="wrap_content"
+        	android:orientation="vertical"
+        	android:id="@+id/contact_mail"
+        	android:onClick="goToMail"
+        	>
+
+	        <TextView
+	            android:layout_width="match_parent"
+	            android:layout_height="wrap_content"
+	            android:text="E-mail"
+	            android:textAppearance="?android:attr/textAppearanceMedium" 
+	            android:textColor="@android:color/primary_text_light"
+	            android:layout_marginTop="8dp"/>
+
+	        <TextView
+	            android:layout_width="match_parent"
+	            android:layout_height="wrap_content"
+	            android:textColor="@android:color/holo_blue_light"
+	            android:text=""
+	            android:id="@+id/profile_email" 
+	            />
+	        
+	        
+        </LinearLayout>
+        
+        <View
+		    android:layout_width="fill_parent"
+		    android:layout_height="1dp"
+		    android:background="@android:color/darker_gray"
+		    android:layout_marginTop="4dp"/>
+        
+        <LinearLayout
+            android:layout_width="match_parent"
+        	android:layout_height="wrap_content"
+        	android:orientation="vertical"
+        	android:id="@+id/contact_googleplus"
+ 			android:onClick="goToGooglePlus"
+        	>
+	        
+	        <TextView
+	            android:layout_width="match_parent"
+	            android:layout_height="wrap_content"
+	            android:text="Google+"
+	            android:textAppearance="?android:attr/textAppearanceMedium" 
+	            android:layout_marginTop="8dp"/>
+	
+	        <TextView
+	            android:layout_width="match_parent"
+	            android:layout_height="wrap_content"
+	            android:textColor="@android:color/holo_blue_light"
+	            android:text="" 
+	            android:id="@+id/profile_googleplus" />
+        </LinearLayout>
+        
+        
+        
+    </LinearLayout>
+        
 
 </RelativeLayout>

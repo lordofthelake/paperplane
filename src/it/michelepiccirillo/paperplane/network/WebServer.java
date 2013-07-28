@@ -1,45 +1,32 @@
-package it.michelepiccirillo.paperplane;
+package it.michelepiccirillo.paperplane.network;
 
 import java.io.OutputStream;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
-import java.net.SocketException;
 import java.util.Enumeration;
-import java.util.concurrent.Callable;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.annotations.Expose;
 
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.CompressFormat;
 import android.util.Log;
 
+import it.michelepiccirillo.paperplane.domain.OwnProfile;
 import it.michelepiccirillo.tympanon.AbstractRoute;
 import it.michelepiccirillo.tympanon.HttpRequest;
 import it.michelepiccirillo.tympanon.HttpResponse;
+import it.michelepiccirillo.tympanon.HttpResponse.Status;
 import it.michelepiccirillo.tympanon.HttpServer;;
 
 public class WebServer extends HttpServer {
-	private class WebProfile extends OwnProfile {
-		@Expose private String picture;
-		
-		WebProfile(OwnProfile profile) {
-			setDisplayName(profile.getDisplayName());
-			setBio(profile.getDescription());
-			setEmail(profile.getEmail());
-			try {
-				setPicture(profile.getPicture().call());
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-			this.picture = "http://" + getPublicSocketAddress() + "/vcard/picture.png";
-		}		
-	}
+	public static final String ENDPOINT_VCARD_PROFILE_JSON = "/vcard/profile.json";
+	public static final String ENDPOINT_VCARD_PROFILE_HTML = "/vcard/profile.html";
+	public static final String ENDPOINT_VCARD_PROFILE_PICTURE = "/vcard/profile/picture.png";
 	
-	private WebProfile profile;
+	private OwnProfile profile;
 	
 	public WebServer() {
 		super(new InetSocketAddress(0));
@@ -72,32 +59,39 @@ public class WebServer extends HttpServer {
 	}
 	
 	private void init() {
-		route("/vcard/profile.json", new AbstractRoute() {
+		route(ENDPOINT_VCARD_PROFILE_JSON, new AbstractRoute() {
 
 			@Override
 			protected void get(HttpRequest req, HttpResponse res)
 					throws Exception {
 				res.setStatus(HttpResponse.Status.OK);
+				res.setHeader("Content-Type", "application/json");
 				Gson gson = new GsonBuilder().excludeFieldsWithoutExposeAnnotation().create();
 				res.getWriter().write(gson.toJson(profile));
 			}
 			
 		});
 		
-		route("/vcard/picture.png", new AbstractRoute() {
+		route(ENDPOINT_VCARD_PROFILE_PICTURE, new AbstractRoute() {
 			@Override
 			protected void get(HttpRequest req, HttpResponse res)
 					throws Exception {
-				res.setStatus(HttpResponse.Status.OK);
-				OutputStream out = res.getOutputStream();
-				Bitmap bmp = profile.getPicture().call();
-				bmp.compress(CompressFormat.PNG, 0, out);
-				res.flush();
+				Bitmap bmp = profile.getPictureBitmap();
+				
+				if(bmp == null) {
+					res.setStatus(Status.NOT_FOUND);
+				} else {
+					res.setStatus(HttpResponse.Status.OK);
+					res.setHeader("Content-Type", "image/png");
+					OutputStream out = res.getOutputStream();
+					bmp.compress(CompressFormat.PNG, 100, out);
+					res.flush();
+				}
 			}
 		});
 	}
 	
 	public void setProfile(OwnProfile profile) {
-		this.profile = new WebProfile(profile);
+		this.profile = profile;
 	}
 }

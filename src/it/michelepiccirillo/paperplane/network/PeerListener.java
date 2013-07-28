@@ -1,4 +1,6 @@
-package it.michelepiccirillo.paperplane;
+package it.michelepiccirillo.paperplane.network;
+
+import it.michelepiccirillo.paperplane.domain.Peer;
 
 import java.util.List;
 

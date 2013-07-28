@@ -21,7 +21,7 @@ public class HttpClient {
 	
 	protected <T> HttpTask<T> create(String path, Method method, Transcoder<T> transcoder, T object) {
 		try {
-			URL url = new URL("http", host.getHostName(), host.getPort(), path);
+			URL url = new URL("http", host.getAddress().getHostAddress(), host.getPort(), path);
 			HttpTask<T> task = new HttpTask<T>(url, method, transcoder, object);
 			
 			task.setTimeout(timeout);

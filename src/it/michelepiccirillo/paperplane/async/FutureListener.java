@@ -14,7 +14,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package it.michelepiccirillo.async;
+package it.michelepiccirillo.paperplane.async;
 
 /**
  * Oggetto che viene notificato nel momento in cui &egrave; terminata una richiesta in background.

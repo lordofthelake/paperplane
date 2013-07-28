@@ -17,7 +17,7 @@
 package it.michelepiccirillo.paperplane.client;
 
 
-import it.michelepiccirillo.async.AsyncQueue;
+import it.michelepiccirillo.paperplane.async.AsyncQueue;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -51,7 +51,7 @@ import android.util.Log;
  */
 public class HttpTask<T> implements Callable<T> {	
 	
-	enum Method { 
+	public enum Method { 
 		OPTIONS("OPTIONS"),
 		GET("GET"),
 		HEAD("HEAD"),

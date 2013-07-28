@@ -1,6 +1,14 @@
-package it.michelepiccirillo.paperplane;
+package it.michelepiccirillo.paperplane.activities;
 
-import it.michelepiccirillo.paperplane.NetworkingService.NetworkingBinder;
+import it.michelepiccirillo.paperplane.R;
+import it.michelepiccirillo.paperplane.R.id;
+import it.michelepiccirillo.paperplane.R.layout;
+import it.michelepiccirillo.paperplane.R.menu;
+import it.michelepiccirillo.paperplane.domain.OwnProfile;
+import it.michelepiccirillo.paperplane.domain.Peer;
+import it.michelepiccirillo.paperplane.network.NetworkingService;
+import it.michelepiccirillo.paperplane.network.PeerListener;
+import it.michelepiccirillo.paperplane.network.NetworkingService.NetworkingBinder;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -44,8 +52,6 @@ public class MainActivity extends Activity implements PeerListener, OnItemClickL
 		adapter = new PeerAdapter(this, list);
 		
 		setContentView(R.layout.activity_main);	
-		
-		
 		
 		profileList = (ListView) findViewById(R.id.profileList);
 		profileList.setAdapter(adapter);
@@ -141,7 +147,6 @@ public class MainActivity extends Activity implements PeerListener, OnItemClickL
 				setLoading(true);
 				service.refreshPeers();
 			}
-				
 			
 			return true;
 		}
@@ -169,6 +174,15 @@ public class MainActivity extends Activity implements PeerListener, OnItemClickL
 	@Override
 	public void onPeerConnected(Peer p) {
 		connectionDialog.dismiss();	
-		Toast.makeText(this, "Connected to: " + p.toString(), Toast.LENGTH_LONG).show();
+		if(p.hasInetAddress()) {
+		Intent profileIntent = new Intent(this, ProfileActivity.class);
+		profileIntent.putExtra(ProfileActivity.EXTRA_PEER, p);
+		
+		startActivity(profileIntent);
+		
+		//Toast.makeText(this, "Connected to: " + p.toString(), Toast.LENGTH_LONG).show();
+		} else {
+			Toast.makeText(this, "Connected, but no IP address is available for the peer at this time. Please try again later", Toast.LENGTH_LONG).show();
+		}
 	}
 }
